@@ -30,6 +30,8 @@
 #include "audio_error.h"
 #include "audio_mem.h"
 
+#include "freertos/task.h"
+
 #include "esp_log.h"
 #include "vfs_stream.h"
 #include "wav_head.h"
@@ -45,6 +47,7 @@
 #define FILE_AMRWB_SUFFIX_TYPE "Wamr"
 
 static const char *TAG = "VFS_STREAM";
+static int thread_inited = 0;
 
 typedef enum {
     STREAM_TYPE_UNKNOW,
@@ -97,7 +100,13 @@ static int get_len(mp_obj_t stream)
 static esp_err_t _vfs_open(audio_element_handle_t self)
 {
     vfs_stream_t *vfs = (vfs_stream_t *)audio_element_getdata(self);
-
+#if MICROPY_PY_THREAD
+    if(mp_thread_get_state()==0){
+        thread_inited = 1;
+        ESP_LOGE(TAG, "_vfs_open cannot find the thread state, create a new one!");
+        mp_thread_init(pxTaskGetStackStart(NULL), 100);
+    }
+#endif
     audio_element_info_t info;
     char *uri = audio_element_get_uri(self);
     if (uri == NULL) {
@@ -244,6 +253,13 @@ static esp_err_t _vfs_close(audio_element_handle_t self)
         info.byte_pos = 0;
         audio_element_setinfo(self, &info);
     }
+// #if MICROPY_PY_THREAD
+//     if(thread_inited && mp_thread_get_state()!=0)
+//     {
+//         mp_thread_deinit();
+//     }
+// #endif
+
     return ESP_OK;
 }
 

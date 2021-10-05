@@ -275,6 +275,7 @@ esp_err_t es8388_init(audio_hal_codec_config_t *cfg)
     res |= es_write_reg(ES8388_ADDR, ES8388_DACCONTROL16, 0x00); // 0x00 audio on LIN1&RIN1,  0x09 LIN2&RIN2
     res |= es_write_reg(ES8388_ADDR, ES8388_DACCONTROL17, 0x90); // only left DAC to left mixer enable 0db
     res |= es_write_reg(ES8388_ADDR, ES8388_DACCONTROL20, 0x90); // only right DAC to right mixer enable 0db
+
     res |= es_write_reg(ES8388_ADDR, ES8388_DACCONTROL21, 0x80); //set internal ADC and DAC use the same LRCK clock, ADC LRCK as internal LRCK
     res |= es_write_reg(ES8388_ADDR, ES8388_DACCONTROL23, 0x00);   //vroi=0
     res |= es8388_set_adc_dac_volume(ES_MODULE_DAC, 0, 0);          // 0db
@@ -289,7 +290,7 @@ esp_err_t es8388_init(audio_hal_codec_config_t *cfg)
     res |= es_write_reg(ES8388_ADDR, ES8388_DACPOWER, tmp);  //0x3c Enable DAC and Enable Lout/Rout/1/2
     /* adc */
     res |= es_write_reg(ES8388_ADDR, ES8388_ADCPOWER, 0xFF);
-    res |= es_write_reg(ES8388_ADDR, ES8388_ADCCONTROL1, 0xbb); // MIC Left and Right channel PGA gain
+    res |= es_write_reg(ES8388_ADDR, ES8388_ADCCONTROL1, 0x88); // MIC Left and Right channel PGA gain
     tmp = 0;
     if (AUDIO_HAL_ADC_INPUT_LINE1 == cfg->adc_input) {
         tmp = ADC_INPUT_LINPUT1_RINPUT1;

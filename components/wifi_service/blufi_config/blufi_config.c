@@ -26,6 +26,7 @@
 #include "audio_mem.h"
 #include "esp_log.h"
 #include "esp_wifi.h"
+#include "esp_blufi.h"
 #include "blufi_config.h"
 #include "blufi_security.h"
 #include "esp_wifi_setting.h"

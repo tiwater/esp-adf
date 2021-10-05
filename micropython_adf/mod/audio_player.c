@@ -74,6 +74,12 @@ STATIC void audio_state_cb(esp_audio_state_t *state, void *ctx)
     audio_player_obj_t *self = (audio_player_obj_t *)ctx;
     memcpy(&self->state, state, sizeof(esp_audio_state_t));
     if (self->callback != mp_const_none) {
+#if MICROPY_PY_THREAD
+        //TODO: Where to deinit the mp thread? -- Add a wrapper for the callback
+        if(mp_thread_get_state() == 0){
+            mp_thread_init(pxTaskGetStackStart(NULL), 10);
+        }
+#endif
         mp_obj_dict_t *dict = mp_obj_new_dict(3);
 
         mp_obj_dict_store(dict, MP_ROM_QSTR(MP_QSTR_status), MP_OBJ_TO_PTR(mp_obj_new_int(state->status)));
