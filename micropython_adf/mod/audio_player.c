@@ -36,6 +36,7 @@
 #include "amr_decoder.h"
 #include "mp3_decoder.h"
 #include "wav_decoder.h"
+#include "aac_decoder.h"
 
 #include "http_stream.h"
 #include "i2s_stream.h"
@@ -54,7 +55,7 @@ STATIC const qstr player_info_fields[] = {
 };
 
 STATIC const MP_DEFINE_STR_OBJ(player_info_input_obj, "http|file stream");
-STATIC const MP_DEFINE_STR_OBJ(player_info_codec_obj, "mp3|amr");
+STATIC const MP_DEFINE_STR_OBJ(player_info_codec_obj, "mp3|amr|aac");
 
 STATIC MP_DEFINE_ATTRTUPLE(
     player_info_obj,
@@ -136,6 +137,10 @@ STATIC esp_audio_handle_t audio_player_create(void)
     esp_audio_input_stream_add(player, http_stream_reader);
 
     // add decoder
+    // aac
+    aac_decoder_cfg_t aac_dec_cfg = DEFAULT_AAC_DECODER_CONFIG();
+    aac_dec_cfg.task_core = 1;
+    esp_audio_codec_lib_add(player, AUDIO_CODEC_TYPE_DECODER, aac_decoder_init(&aac_dec_cfg));
     // mp3
     mp3_decoder_cfg_t mp3_dec_cfg = DEFAULT_MP3_DECODER_CONFIG();
     mp3_dec_cfg.task_core = 1;

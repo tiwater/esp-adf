@@ -115,6 +115,12 @@ static esp_err_t _vfs_open(audio_element_handle_t self)
     }
     ESP_LOGD(TAG, "_vfs_open, uri:%s", uri);
     char *path = strstr(uri, "/sdcard");
+    if(path==NULL){
+        path = strstr(uri, "//");
+        if(path){
+            path = path + 1;
+        }
+    }
     audio_element_getinfo(self, &info);
     if (path == NULL) {
         ESP_LOGE(TAG, "Error, need file path to open");
