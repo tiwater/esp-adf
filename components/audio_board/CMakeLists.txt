@@ -23,6 +23,15 @@ set(COMPONENT_SRCS
 )
 endif()
 
+if (CONFIG_ESP_TIWATER_V1_0_BOARD)
+message(STATUS "Current board name is " CONFIG_ESP_TIWATER_V1_0_BOARD)
+list(APPEND COMPONENT_ADD_INCLUDEDIRS ./tiwater_v1_0)
+set(COMPONENT_SRCS
+./tiwater_v1_0/board.c
+./tiwater_v1_0/board_pins_config.c
+)
+endif()
+
 if (CONFIG_ESP_LYRAT_MINI_V1_1_BOARD)
 message(STATUS "Current board name is " CONFIG_ESP_LYRAT_MINI_V1_1_BOARD)
 list(APPEND COMPONENT_ADD_INCLUDEDIRS ./lyrat_mini_v1_1)

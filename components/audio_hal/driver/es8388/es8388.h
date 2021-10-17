@@ -35,7 +35,11 @@ extern "C" {
 #endif
 
 /* ES8388 address */
+#ifdef CONFIG_ESP_TIWATER_V1_0_BOARD
 #define ES8388_ADDR 0x22  /*!< 0x22:CE=1;0x20:CE=0*/
+#else
+#define ES8388_ADDR 0x20  /*!< 0x22:CE=1;0x20:CE=0*/
+#endif
 
 /* ES8388 register */
 #define ES8388_CONTROL1         0x00
