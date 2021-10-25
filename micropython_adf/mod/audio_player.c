@@ -28,6 +28,7 @@
 #include "py/objstr.h"
 #include "py/runtime.h"
 
+#include "esp_log.h"
 #include "esp_audio.h"
 
 #include "audio_hal.h"
@@ -37,6 +38,7 @@
 #include "mp3_decoder.h"
 #include "wav_decoder.h"
 #include "aac_decoder.h"
+#include "opus_decoder.h"
 
 #include "http_stream.h"
 #include "i2s_stream.h"
@@ -55,7 +57,7 @@ STATIC const qstr player_info_fields[] = {
 };
 
 STATIC const MP_DEFINE_STR_OBJ(player_info_input_obj, "http|file stream");
-STATIC const MP_DEFINE_STR_OBJ(player_info_codec_obj, "mp3|amr|aac");
+STATIC const MP_DEFINE_STR_OBJ(player_info_codec_obj, "mp3|amr|aac|opus");
 
 STATIC MP_DEFINE_ATTRTUPLE(
     player_info_obj,
@@ -70,11 +72,32 @@ STATIC mp_obj_t player_info(void)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(audio_player_info_obj, player_info);
 
+// STATIC mp_obj_t audio_mp_state_cb(audio_player_obj_t *self){
+//     ESP_LOGE("player", "%p callbck %p", self, self->callback);
+//     if (self->callback != mp_const_none) {
+//         mp_obj_dict_t *dict = mp_obj_new_dict(3);
+
+//         mp_obj_dict_store(dict, MP_ROM_QSTR(MP_QSTR_status), MP_OBJ_TO_PTR(mp_obj_new_int(self->state.status)));
+//         mp_obj_dict_store(dict, MP_ROM_QSTR(MP_QSTR_err_msg), MP_OBJ_TO_PTR(mp_obj_new_int(self->state.err_msg)));
+//         mp_obj_dict_store(dict, MP_ROM_QSTR(MP_QSTR_media_src), MP_OBJ_TO_PTR(mp_obj_new_int(self->state.media_src)));
+
+//         ESP_LOGE("player", "to call the callbck");
+//         int ret = mp_sched_schedule(self->callback, dict);
+//     }
+//     return mp_const_none;
+// }
+// STATIC MP_DEFINE_CONST_FUN_OBJ_1(audio_mp_state_cb_obj, audio_mp_state_cb);
+
 STATIC void audio_state_cb(esp_audio_state_t *state, void *ctx)
 {
     audio_player_obj_t *self = (audio_player_obj_t *)ctx;
     memcpy(&self->state, state, sizeof(esp_audio_state_t));
     if (self->callback != mp_const_none) {
+        //TODO: the mp_sched_schedule may not work here. Is it caused by cross cores in CPU?
+        // if(mp_thread_get_state() == 0){
+        //     ESP_LOGE("player", "No THREADLOCAL");
+        // }
+        // mp_sched_schedule(MP_OBJ_FROM_PTR(&audio_mp_state_cb_obj), self);
 #if MICROPY_PY_THREAD
         //TODO: Where to deinit the mp thread? -- Add a wrapper for the callback
         if(mp_thread_get_state() == 0){
@@ -87,7 +110,7 @@ STATIC void audio_state_cb(esp_audio_state_t *state, void *ctx)
         mp_obj_dict_store(dict, MP_ROM_QSTR(MP_QSTR_err_msg), MP_OBJ_TO_PTR(mp_obj_new_int(state->err_msg)));
         mp_obj_dict_store(dict, MP_ROM_QSTR(MP_QSTR_media_src), MP_OBJ_TO_PTR(mp_obj_new_int(state->media_src)));
 
-        mp_sched_schedule(self->callback, dict);
+        int ret = mp_sched_schedule(self->callback, dict);
     }
 }
 
@@ -153,6 +176,10 @@ STATIC esp_audio_handle_t audio_player_create(void)
     wav_decoder_cfg_t wav_dec_cfg = DEFAULT_WAV_DECODER_CONFIG();
     wav_dec_cfg.task_core = 1;
     esp_audio_codec_lib_add(player, AUDIO_CODEC_TYPE_DECODER, wav_decoder_init(&wav_dec_cfg));
+    // opus
+    opus_decoder_cfg_t opus_dec_cfg = DEFAULT_OPUS_DECODER_CONFIG();
+    opus_dec_cfg.task_core = 1;
+    esp_audio_codec_lib_add(player, AUDIO_CODEC_TYPE_DECODER, decoder_opus_init(&opus_dec_cfg));
 
     // Create writers and add to esp_audio
     i2s_stream_cfg_t i2s_writer = I2S_STREAM_CFG_DEFAULT();

@@ -249,7 +249,7 @@ esp_err_t es8388_init(audio_hal_codec_config_t *cfg)
 {
     int res = 0;
 #ifdef CONFIG_ESP_LYRAT_V4_3_BOARD
-    headphone_detect_init(get_headphone_detect_gpio());
+    // headphone_detect_init(get_headphone_detect_gpio());
 #endif
 
     res = i2c_init(); // ESP32 in master mode
