@@ -256,7 +256,7 @@ esp_err_t es8388_init(audio_hal_codec_config_t *cfg)
 
     res |= es_write_reg(ES8388_ADDR, ES8388_DACCONTROL3, 0x04);  // 0x04 mute/0x00 unmute&ramp;DAC unmute and  disabled digital volume control soft ramp
     /* Chip Control and Power Management */
-    res |= es_write_reg(ES8388_ADDR, ES8388_CONTROL2, 0x50);
+    res |= es_write_reg(ES8388_ADDR, ES8388_CONTROL2, 0x40);  //Enable vref
     res |= es_write_reg(ES8388_ADDR, ES8388_CHIPPOWER, 0x00); //normal all and power up all
 
     // Disable the internal DLL to improve 8K sample rate
@@ -268,7 +268,7 @@ esp_err_t es8388_init(audio_hal_codec_config_t *cfg)
 
     /* dac */
     res |= es_write_reg(ES8388_ADDR, ES8388_DACPOWER, 0xC0);  //disable DAC and disable Lout/Rout/1/2
-    res |= es_write_reg(ES8388_ADDR, ES8388_CONTROL1, 0x12);  //Enfr=0,Play&Record Mode,(0x17-both of mic&paly)
+    res |= es_write_reg(ES8388_ADDR, ES8388_CONTROL1, 0x15);  //Enfr=0,Play&Record Mode,(0x17-both of mic&paly)
 //    res |= es_write_reg(ES8388_ADDR, ES8388_CONTROL2, 0);  //LPVrefBuf=0,Pdn_ana=0
     res |= es_write_reg(ES8388_ADDR, ES8388_DACCONTROL1, 0x18);//1a 0x18:16bit iis , 0x00:24
     res |= es_write_reg(ES8388_ADDR, ES8388_DACCONTROL2, 0x02);  //DACFsMode,SINGLE SPEED; DACFsRatio,256
@@ -300,12 +300,20 @@ esp_err_t es8388_init(audio_hal_codec_config_t *cfg)
         tmp = ADC_INPUT_DIFFERENCE;
     }
     res |= es_write_reg(ES8388_ADDR, ES8388_ADCCONTROL2, tmp);  //0x00 LINSEL & RINSEL, LIN1/RIN1 as ADC Input; DSSEL,use one DS Reg11; DSR, LINPUT1-RINPUT1
-    res |= es_write_reg(ES8388_ADDR, ES8388_ADCCONTROL3, 0x02);
-    res |= es_write_reg(ES8388_ADDR, ES8388_ADCCONTROL4, 0x0d); // Left/Right data, Left/Right justified mode, Bits length, I2S format
+    res |= es_write_reg(ES8388_ADDR, ES8388_ADCCONTROL3, 0x02);  //L1-R1
+    //res |= es_write_reg(ES8388_ADDR, ES8388_ADCCONTROL3, 0x82);   //L2-R2
+
+    res |= es_write_reg(ES8388_ADDR, ES8388_ADCCONTROL4, 0x4d); // Left data, Left/Right justified mode, Bits length, I2S format
     res |= es_write_reg(ES8388_ADDR, ES8388_ADCCONTROL5, 0x02);  //ADCFsMode,singel SPEED,RATIO=256
     //ALC for Microphone
+    res |= es_write_reg(ES8388_ADDR, ES8388_ADCCONTROL10, 0xe2);  //ALC gain range, Stero
+    res |= es_write_reg(ES8388_ADDR, ES8388_ADCCONTROL11, 0xa0);  //ALC target level and hold time
+    res |= es_write_reg(ES8388_ADDR, ES8388_ADCCONTROL12, 0x12);   //ALC ramp up & ramp down mode
+    res |= es_write_reg(ES8388_ADDR, ES8388_ADCCONTROL13, 0x06);
+    res |= es_write_reg(ES8388_ADDR, ES8388_ADCCONTROL14, 0xc3);
+
     res |= es8388_set_adc_dac_volume(ES_MODULE_ADC, 0, 0);      // 0db
-    res |= es_write_reg(ES8388_ADDR, ES8388_ADCPOWER, 0x09); //Power on ADC, Enable LIN&RIN, Power off MICBIAS, set int1lp to low power mode
+    res |= es_write_reg(ES8388_ADDR, ES8388_ADCPOWER, 0x00); //Power on ADC, Enable LIN&RIN, Power off MICBIAS, set int1lp to low power mode
     /* enable es8388 PA */
     es8388_pa_power(true);
     ESP_LOGI(ES_TAG, "init,out:%02x, in:%02x", cfg->dac_output, cfg->adc_input);
