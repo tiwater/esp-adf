@@ -27,6 +27,8 @@
 
 #include "py/objstr.h"
 #include "py/runtime.h"
+#include "py/mpthread.h"
+#include "py/stackctrl.h"
 
 #include "esp_log.h"
 #include "esp_audio.h"
@@ -72,38 +74,31 @@ STATIC mp_obj_t player_info(void)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(audio_player_info_obj, player_info);
 
-// STATIC mp_obj_t audio_mp_state_cb(audio_player_obj_t *self){
-//     ESP_LOGE("player", "%p callbck %p", self, self->callback);
-//     if (self->callback != mp_const_none) {
-//         mp_obj_dict_t *dict = mp_obj_new_dict(3);
-
-//         mp_obj_dict_store(dict, MP_ROM_QSTR(MP_QSTR_status), MP_OBJ_TO_PTR(mp_obj_new_int(self->state.status)));
-//         mp_obj_dict_store(dict, MP_ROM_QSTR(MP_QSTR_err_msg), MP_OBJ_TO_PTR(mp_obj_new_int(self->state.err_msg)));
-//         mp_obj_dict_store(dict, MP_ROM_QSTR(MP_QSTR_media_src), MP_OBJ_TO_PTR(mp_obj_new_int(self->state.media_src)));
-
-//         ESP_LOGE("player", "to call the callbck");
-//         int ret = mp_sched_schedule(self->callback, dict);
-//     }
-//     return mp_const_none;
-// }
-// STATIC MP_DEFINE_CONST_FUN_OBJ_1(audio_mp_state_cb_obj, audio_mp_state_cb);
-
 STATIC void audio_state_cb(esp_audio_state_t *state, void *ctx)
 {
     audio_player_obj_t *self = (audio_player_obj_t *)ctx;
     memcpy(&self->state, state, sizeof(esp_audio_state_t));
     if (self->callback != mp_const_none) {
-        //TODO: the mp_sched_schedule may not work here. Is it caused by cross cores in CPU?
-        // if(mp_thread_get_state() == 0){
-        //     ESP_LOGE("player", "No THREADLOCAL");
-        // }
-        // mp_sched_schedule(MP_OBJ_FROM_PTR(&audio_mp_state_cb_obj), self);
-#if MICROPY_PY_THREAD
-        //TODO: Where to deinit the mp thread? -- Add a wrapper for the callback
-        if(mp_thread_get_state() == 0){
-            mp_thread_init(pxTaskGetStackStart(NULL), 10);
+        mp_state_thread_t ts;
+        if(mp_thread_get_state()==0){
+            ESP_LOGE("player", "audio_state_cb cannot find the thread state, create a new one!");
+            memset(&ts, 0, sizeof(mp_state_thread_t));
+            mp_thread_set_state(&ts);
+
+            mp_stack_set_top(&ts + 1); // need to include ts in root-pointer scan
+            mp_stack_set_limit(1024);
+
+            #if MICROPY_ENABLE_PYSTACK
+            // TODO threading and pystack is not fully supported, for now just make a small stack
+            mp_obj_t mini_pystack[128];
+            mp_pystack_init(mini_pystack, &mini_pystack[128]);
+            #endif
+
+            // The GC starts off unlocked on this thread.
+            ts.gc_lock_depth = 0;
+
+            ts.mp_pending_exception = MP_OBJ_NULL;
         }
-#endif
         mp_obj_dict_t *dict = mp_obj_new_dict(3);
 
         mp_obj_dict_store(dict, MP_ROM_QSTR(MP_QSTR_status), MP_OBJ_TO_PTR(mp_obj_new_int(state->status)));
