@@ -73,13 +73,13 @@ STATIC mp_obj_t player_info(void)
     return (mp_obj_t)&player_info_obj;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(audio_player_info_obj, player_info);
+STATIC mp_state_thread_t ts;
 
 STATIC void audio_state_cb(esp_audio_state_t *state, void *ctx)
 {
     audio_player_obj_t *self = (audio_player_obj_t *)ctx;
     memcpy(&self->state, state, sizeof(esp_audio_state_t));
     if (self->callback != mp_const_none) {
-        mp_state_thread_t ts;
         if(mp_thread_get_state()==0){
             ESP_LOGE("player", "audio_state_cb cannot find the thread state, create a new one!");
             memset(&ts, 0, sizeof(mp_state_thread_t));
