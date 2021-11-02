@@ -73,20 +73,21 @@ STATIC mp_obj_t player_info(void)
     return (mp_obj_t)&player_info_obj;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(audio_player_info_obj, player_info);
-STATIC mp_state_thread_t ts;
+STATIC mp_state_thread_t player_ts;
 
 STATIC void audio_state_cb(esp_audio_state_t *state, void *ctx)
 {
     audio_player_obj_t *self = (audio_player_obj_t *)ctx;
     memcpy(&self->state, state, sizeof(esp_audio_state_t));
+    printf("audio_state_cb status: %d\n", state->status);
     if (self->callback != mp_const_none) {
         if(mp_thread_get_state()==0){
             ESP_LOGE("player", "audio_state_cb cannot find the thread state, create a new one!");
-            memset(&ts, 0, sizeof(mp_state_thread_t));
-            mp_thread_set_state(&ts);
+            memset(&player_ts, 0, sizeof(mp_state_thread_t));
+            mp_thread_set_state(&player_ts);
 
-            mp_stack_set_top(&ts + 1); // need to include ts in root-pointer scan
-            mp_stack_set_limit(1024);
+            mp_stack_set_top(&player_ts + 1); // need to include ts in root-pointer scan
+            mp_stack_set_limit(2048);
 
             #if MICROPY_ENABLE_PYSTACK
             // TODO threading and pystack is not fully supported, for now just make a small stack
@@ -95,9 +96,9 @@ STATIC void audio_state_cb(esp_audio_state_t *state, void *ctx)
             #endif
 
             // The GC starts off unlocked on this thread.
-            ts.gc_lock_depth = 0;
+            player_ts.gc_lock_depth = 0;
 
-            ts.mp_pending_exception = MP_OBJ_NULL;
+            player_ts.mp_pending_exception = MP_OBJ_NULL;
         }
         mp_obj_dict_t *dict = mp_obj_new_dict(3);
 

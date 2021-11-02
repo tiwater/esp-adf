@@ -65,9 +65,12 @@ typedef struct vfs_stream {
     bool is_open;
     mp_obj_t file;
     wr_stream_type_t w_type;
+#if MICROPY_PY_THREAD
+    mp_state_thread_t* ts;
+#endif
 } vfs_stream_t;
 
-static mp_state_thread_t* ts = NULL;
+// static mp_state_thread_t* ts = NULL;
 
 static wr_stream_type_t get_type(const char *str)
 {
@@ -107,12 +110,12 @@ static esp_err_t _vfs_open(audio_element_handle_t self)
 #if MICROPY_PY_THREAD
     if(mp_thread_get_state()==0){
         ESP_LOGE(TAG, "_vfs_open cannot find the thread state, create a new one!");
-        ts = malloc(sizeof(mp_state_thread_t));
+        mp_state_thread_t* ts = malloc(sizeof(mp_state_thread_t));
         memset(ts, 0, sizeof(mp_state_thread_t));
         mp_thread_set_state(ts);
 
         mp_stack_set_top(ts + 1); // need to include ts in root-pointer scan
-        mp_stack_set_limit(1024);
+        mp_stack_set_limit(2048);
 
         #if MICROPY_ENABLE_PYSTACK
         // TODO threading and pystack is not fully supported, for now just make a small stack
@@ -124,6 +127,7 @@ static esp_err_t _vfs_open(audio_element_handle_t self)
         ts->gc_lock_depth = 0;
 
         ts->mp_pending_exception = MP_OBJ_NULL;
+        vfs->ts = ts;
     }
 #endif
     audio_element_info_t info;
@@ -153,7 +157,8 @@ static esp_err_t _vfs_open(audio_element_handle_t self)
         mp_obj_t args[2];
         args[0] = mp_obj_new_str(path, strlen(path));
         args[1] = mp_obj_new_str("rb", strlen("rb"));
-        vfs->file = mp_vfs_open(2, args, (mp_map_t *)&mp_const_empty_map);mp_obj_dict_store(MP_OBJ_FROM_PTR(&MP_STATE_VM(dict_main)), MP_OBJ_NEW_QSTR(MP_QSTR___audio_vfs_file__), vfs->file);
+        vfs->file = mp_vfs_open(2, args, (mp_map_t *)&mp_const_empty_map);
+        mp_obj_dict_store(MP_OBJ_FROM_PTR(&MP_STATE_VM(dict_main)), MP_OBJ_NEW_QSTR(MP_QSTR___audio_vfs_file__), vfs->file);
         info.total_bytes = get_len(vfs->file);
         ESP_LOGI(TAG, "File size is %d byte,pos:%d", (int)info.total_bytes, (int)info.byte_pos);
         if (vfs->file != mp_const_none && (info.byte_pos > 0)) {
@@ -166,7 +171,8 @@ static esp_err_t _vfs_open(audio_element_handle_t self)
         mp_obj_t args[2];
         args[0] = mp_obj_new_str(path, strlen(path));
         args[1] = mp_obj_new_str("wb", strlen("wb"));
-        vfs->file = mp_vfs_open(2, args, (mp_map_t *)&mp_const_empty_map);mp_obj_dict_store(MP_OBJ_FROM_PTR(&MP_STATE_VM(dict_main)), MP_OBJ_NEW_QSTR(MP_QSTR___audio_vfs_file__), vfs->file);
+        vfs->file = mp_vfs_open(2, args, (mp_map_t *)&mp_const_empty_map);
+        mp_obj_dict_store(MP_OBJ_FROM_PTR(&MP_STATE_VM(dict_main)), MP_OBJ_NEW_QSTR(MP_QSTR___audio_vfs_file__), vfs->file);
         vfs->w_type = get_type(path);
         if (vfs->file != mp_const_none && STREAM_TYPE_WAV == vfs->w_type) {
             wav_header_t info = { 0 };
@@ -286,11 +292,11 @@ static esp_err_t _vfs_close(audio_element_handle_t self)
 static esp_err_t _vfs_destroy(audio_element_handle_t self)
 {
     vfs_stream_t *vfs = (vfs_stream_t *)audio_element_getdata(self);
-    audio_free(vfs);
-    if(ts!=NULL){
-        free(ts);
-        ts = NULL;
+    if(vfs->ts!=NULL)
+    {
+        free(vfs->ts);
     }
+    audio_free(vfs);
     return ESP_OK;
 }
 
@@ -317,6 +323,7 @@ audio_element_handle_t vfs_stream_init(vfs_stream_cfg_t *config)
 
     cfg.tag = "file";
     vfs->type = config->type;
+    vfs->ts = NULL;
 
     if (config->type == AUDIO_STREAM_WRITER) {
         cfg.write = _vfs_write;
