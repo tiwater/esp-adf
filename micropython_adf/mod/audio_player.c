@@ -40,6 +40,7 @@
 #include "mp3_decoder.h"
 #include "wav_decoder.h"
 #include "aac_decoder.h"
+#include "ogg_decoder.h"
 #include "opus_decoder.h"
 
 #include "http_stream.h"
@@ -59,7 +60,7 @@ STATIC const qstr player_info_fields[] = {
 };
 
 STATIC const MP_DEFINE_STR_OBJ(player_info_input_obj, "http|file stream");
-STATIC const MP_DEFINE_STR_OBJ(player_info_codec_obj, "mp3|amr|aac|opus");
+STATIC const MP_DEFINE_STR_OBJ(player_info_codec_obj, "mp3|amr|aac|opus|ogg|wav");
 
 STATIC MP_DEFINE_ATTRTUPLE(
     player_info_obj,
@@ -172,6 +173,10 @@ STATIC esp_audio_handle_t audio_player_create(void)
     wav_decoder_cfg_t wav_dec_cfg = DEFAULT_WAV_DECODER_CONFIG();
     wav_dec_cfg.task_core = 1;
     esp_audio_codec_lib_add(player, AUDIO_CODEC_TYPE_DECODER, wav_decoder_init(&wav_dec_cfg));
+    // ogg
+    ogg_decoder_cfg_t ogg_dec_cfg = DEFAULT_OGG_DECODER_CONFIG();
+    ogg_dec_cfg.task_core = 1;
+    esp_audio_codec_lib_add(player, AUDIO_CODEC_TYPE_DECODER, ogg_decoder_init(&ogg_dec_cfg));
     // opus
     opus_decoder_cfg_t opus_dec_cfg = DEFAULT_OPUS_DECODER_CONFIG();
     opus_dec_cfg.task_core = 1;
