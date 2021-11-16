@@ -32,6 +32,7 @@
 
 #include "driver/i2s.h"
 #include "driver/dac.h"
+#include "driver/periph_ctrl.h"
 #include "esp_log.h"
 #include "esp_err.h"
 
@@ -162,6 +163,16 @@ static esp_err_t _i2s_open(audio_element_handle_t self)
     } else if (i2s->type == AUDIO_STREAM_WRITER) {
         audio_element_set_input_timeout(self, 10 / portTICK_RATE_MS);
         ESP_LOGI(TAG, "AUDIO_STREAM_WRITER");
+        audio_element_info_t i2s_info = {0};
+        i2s_info.bits = I2S_BITS_PER_SAMPLE_16BIT;
+        i2s_info.channels = 2;
+        i2s_info.sample_rates = 48000;
+        audio_element_getinfo(self, &i2s_info);
+        ESP_LOGI(TAG, "AUDIO_STREAM_READER,Rate:%d,ch:%d", i2s_info.sample_rates, i2s_info.channels);
+        if (i2s_set_clk(i2s->config.i2s_port, i2s_info.sample_rates, i2s_info.bits, i2s_info.channels) == ESP_FAIL) {
+            ESP_LOGE(TAG, "i2s_set_clk failed, type = %d", i2s->config.type);
+            return ESP_FAIL;
+        }
     }
     i2s->is_open = true;
     if (i2s->use_alc) {
