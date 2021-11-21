@@ -30,6 +30,15 @@
 #define SDCARD_OPEN_FILE_NUM_MAX  5
 #define SDCARD_INTR_GPIO          GPIO_NUM_34
 
+#define CODEC_I2C_SDA GPIO_NUM_23;
+#define CODEC_I2C_SCL GPIO_NUM_18;
+
+#define I2S_MCLK_GPIO GPIO_NUM_0;
+#define I2S_SCLK_GPIO GPIO_NUM_26;
+#define I2S_LRCLK_GPIO = GPIO_NUM_33;
+#define I2S_DOUT_GPIO = GPIO_NUM_25;
+#define I2S_DIN_GPIO  GPIO_NUM_32;
+
 #define BUTTON_REC_ID             GPIO_NUM_36
 #define BUTTON_MODE_ID            GPIO_NUM_39
 #define BUTTON_SET_ID             TOUCH_PAD_NUM9
@@ -39,7 +48,7 @@
 
 #define AUXIN_DETECT_GPIO         GPIO_NUM_12
 #define HEADPHONE_DETECT          GPIO_NUM_19
-#define PA_ENABLE_GPIO            GPIO_NUM_21
+#define PA_ENABLE_GPIO            GPIO_NUM_5
 
 #define GREEN_LED_GPIO            GPIO_NUM_22
 

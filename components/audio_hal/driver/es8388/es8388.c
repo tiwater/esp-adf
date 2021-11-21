@@ -192,7 +192,7 @@ esp_err_t es8388_stop(es_module_t mode)
     if (mode == ES_MODULE_DAC || mode == ES_MODULE_ADC_DAC) {
         res |= es_write_reg(ES8388_ADDR, ES8388_DACPOWER, 0x00);
         res |= es8388_set_voice_mute(true); //res |= Es8388SetAdcDacVolume(ES_MODULE_DAC, -96, 5);      // 0db
-        //res |= es_write_reg(ES8388_ADDR, ES8388_DACPOWER, 0xC0);  //power down dac and line out
+        res |= es_write_reg(ES8388_ADDR, ES8388_DACPOWER, 0xC0);  //power down dac and line out
     }
     if (mode == ES_MODULE_ADC || mode == ES_MODULE_ADC_DAC) {
         //res |= Es8388SetAdcDacVolume(ES_MODULE_ADC, -96, 5);      // 0db
@@ -202,7 +202,7 @@ esp_err_t es8388_stop(es_module_t mode)
         res |= es_write_reg(ES8388_ADDR, ES8388_DACCONTROL21, 0x9C);  //disable mclk
 //        res |= es_write_reg(ES8388_ADDR, ES8388_CONTROL1, 0x00);
 //        res |= es_write_reg(ES8388_ADDR, ES8388_CONTROL2, 0x58);
-//        res |= es_write_reg(ES8388_ADDR, ES8388_CHIPPOWER, 0xF3);  //stop state machine
+       res |= es_write_reg(ES8388_ADDR, ES8388_CHIPPOWER, 0xF3);  //stop state machine
     }
 
     return res;

@@ -30,6 +30,9 @@
 #include "py/mpthread.h"
 #include "py/stackctrl.h"
 
+#include "driver/gpio.h"
+#include "driver/rtc_io.h"
+
 #include "esp_log.h"
 #include "esp_audio.h"
 
@@ -80,7 +83,6 @@ STATIC void audio_state_cb(esp_audio_state_t *state, void *ctx)
 {
     audio_player_obj_t *self = (audio_player_obj_t *)ctx;
     memcpy(&self->state, state, sizeof(esp_audio_state_t));
-    printf("audio_state_cb status: %d\n", state->status);
     if (self->callback != mp_const_none) {
         if(mp_thread_get_state()==0){
             ESP_LOGE("player", "audio_state_cb cannot find the thread state, create a new one!");
@@ -378,6 +380,57 @@ STATIC mp_obj_t audio_player_time(mp_obj_t self_in)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(audio_player_time_obj, audio_player_time);
 
+STATIC mp_obj_t audio_player_sleep(mp_obj_t self_in)
+{
+    audio_player_obj_t *self = self_in;
+    ESP_LOGD("player", "audio_player_sleep");
+
+    audio_board_handle_t board_handle = audio_board_get_handle();
+    board_handle->audio_hal->audio_codec_ctrl(AUDIO_HAL_CODEC_MODE_BOTH, AUDIO_HAL_CTRL_STOP);
+
+    i2s_stream_cfg_t i2s_config = I2S_STREAM_CFG_DEFAULT();
+    i2s_stop(i2s_config.i2s_port);
+    rtc_gpio_pulldown_en(I2S_MCLK_GPIO);
+    rtc_gpio_hold_dis(I2S_MCLK_GPIO);
+
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(audio_player_sleep_obj, audio_player_sleep);
+
+STATIC mp_obj_t audio_player_deep_sleep(mp_obj_t self_in)
+{
+    ESP_LOGD("player", "audio_player_deep_sleep");
+#if CONFIG_IDF_TARGET_ESP32
+    rtc_gpio_isolate(GPIO_NUM_12);
+#endif
+    rtc_gpio_isolate(I2S_MCLK_GPIO);
+    rtc_gpio_isolate(I2S_SCLK_GPIO);
+    rtc_gpio_isolate(I2S_LRCLK_GPIO);
+    rtc_gpio_isolate(I2S_DOUT_GPIO);
+    rtc_gpio_isolate(I2S_DIN_GPIO);
+
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(audio_player_deep_sleep_obj, audio_player_deep_sleep);
+
+STATIC mp_obj_t audio_player_wakeup(mp_obj_t self_in)
+{
+    ESP_LOGD("player", "audio_player_wakeup");
+    rtc_gpio_deinit(GPIO_NUM_0);
+    
+    audio_board_handle_t board_handle = audio_board_get_handle();
+    audio_hal_ctrl_codec(board_handle->audio_hal, AUDIO_HAL_CODEC_MODE_BOTH, AUDIO_HAL_CTRL_START);
+
+    // I2S config
+    i2s_stream_cfg_t i2s_config = I2S_STREAM_CFG_DEFAULT();
+    i2s_start(i2s_config.i2s_port);
+    
+    i2s_mclk_gpio_select(i2s_config.i2s_port, GPIO_NUM_0);
+    
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(audio_player_wakeup_obj, audio_player_wakeup);
+
 STATIC const mp_rom_map_elem_t player_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_info), MP_ROM_PTR(&audio_player_info_obj) },
     { MP_ROM_QSTR(MP_QSTR_play), MP_ROM_PTR(&audio_player_play_obj) },
@@ -390,6 +443,9 @@ STATIC const mp_rom_map_elem_t player_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_get_state), MP_ROM_PTR(&audio_player_state_obj) },
     { MP_ROM_QSTR(MP_QSTR_pos), MP_ROM_PTR(&audio_player_pos_obj) },
     { MP_ROM_QSTR(MP_QSTR_time), MP_ROM_PTR(&audio_player_time_obj) },
+    { MP_ROM_QSTR(MP_QSTR_sleep), MP_ROM_PTR(&audio_player_sleep_obj) },
+    { MP_ROM_QSTR(MP_QSTR_deep_sleep), MP_ROM_PTR(&audio_player_deep_sleep_obj) },
+    { MP_ROM_QSTR(MP_QSTR_wakeup), MP_ROM_PTR(&audio_player_wakeup_obj) },
 
     // esp_audio_status_t
     { MP_ROM_QSTR(MP_QSTR_STATUS_UNKNOWN), MP_ROM_INT(AUDIO_STATUS_UNKNOWN) },
