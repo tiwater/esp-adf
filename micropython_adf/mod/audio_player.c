@@ -390,8 +390,8 @@ STATIC mp_obj_t audio_player_sleep(mp_obj_t self_in)
 
     i2s_stream_cfg_t i2s_config = I2S_STREAM_CFG_DEFAULT();
     i2s_stop(i2s_config.i2s_port);
-    rtc_gpio_pulldown_en(I2S_MCLK_GPIO);
     rtc_gpio_hold_dis(I2S_MCLK_GPIO);
+    rtc_gpio_pulldown_en(I2S_MCLK_GPIO);
 
     return mp_const_none;
 }

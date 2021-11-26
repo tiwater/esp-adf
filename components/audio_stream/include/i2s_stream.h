@@ -57,7 +57,7 @@ typedef struct {
 #define I2S_STREAM_BUF_SIZE             (2048)
 #define I2S_STREAM_TASK_PRIO            (23)
 #define I2S_STREAM_TASK_CORE            (0)
-#define I2S_STREAM_RINGBUFFER_SIZE      (8 * 1024)
+#define I2S_STREAM_RINGBUFFER_SIZE      (16 * 1024)
 
 #if (ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4, 3, 0))
 #define I2S_STREAM_CFG_DEFAULT() {                                              \
@@ -149,8 +149,8 @@ typedef struct {
         .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,                           \
         .communication_format = I2S_COMM_FORMAT_STAND_I2S,                      \
         .intr_alloc_flags = ESP_INTR_FLAG_LEVEL2 | ESP_INTR_FLAG_IRAM,          \
-        .dma_buf_count = 3,                                                     \
-        .dma_buf_len = 300,                                                     \
+        .dma_buf_count = 4,                                                     \
+        .dma_buf_len = 400,                                                     \
         .use_apll = true,                                                       \
         .tx_desc_auto_clear = true,                                             \
         .fixed_mclk = 0                                                         \
@@ -176,8 +176,8 @@ typedef struct {
         .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,                           \
         .communication_format = I2S_COMM_FORMAT_STAND_MSB,                        \
         .intr_alloc_flags = ESP_INTR_FLAG_LEVEL2,                               \
-        .dma_buf_count = 3,                                                     \
-        .dma_buf_len = 300,                                                     \
+        .dma_buf_count = 4,                                                     \
+        .dma_buf_len = 400,                                                     \
         .use_apll = false,                                                      \
         .tx_desc_auto_clear = true,                                             \
         .fixed_mclk = 0                                                         \
@@ -202,8 +202,8 @@ typedef struct {
         .bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT,                           \
         .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,                           \
         .communication_format = I2S_COMM_FORMAT_STAND_MSB,                      \
-        .dma_buf_count = 3,                                                     \
-        .dma_buf_len = 300,                                                     \
+        .dma_buf_count = 4,                                                     \
+        .dma_buf_len = 400,                                                     \
         .use_apll = true,                                                       \
         .tx_desc_auto_clear = true,                                             \
         .fixed_mclk = 0                                                         \
