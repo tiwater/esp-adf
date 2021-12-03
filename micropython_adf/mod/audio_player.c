@@ -130,6 +130,18 @@ STATIC int _http_stream_event_handle(http_stream_event_msg_t *msg)
 
 STATIC esp_audio_handle_t audio_player_create(void)
 {
+    esp_log_level_set("ESP_AUDIO_CTRL", ESP_LOG_WARN);
+    esp_log_level_set("AUDIO_MANAGER", ESP_LOG_WARN);
+    esp_log_level_set("A2DP_STREAM", ESP_LOG_WARN);
+    esp_log_level_set("AUDIO_PIPELINE", ESP_LOG_WARN);
+    esp_log_level_set("AUDIO_ELEMENT", ESP_LOG_WARN);
+    esp_log_level_set("ESP_AUDIO_TASK", ESP_LOG_WARN);
+    esp_log_level_set("I2S_STREAM", ESP_LOG_WARN);
+    esp_log_level_set("VORBIS_DECODER", ESP_LOG_WARN);
+    esp_log_level_set("CODEC_ELEMENT_HELPER", ESP_LOG_WARN);
+    esp_log_level_set("AUDIO_FORGE", ESP_LOG_WARN);
+    esp_log_level_set("VFS_STREAM", ESP_LOG_WARN);
+
     // init audio board
     audio_board_handle_t board_handle = audio_board_init();
     audio_hal_ctrl_codec(board_handle->audio_hal, AUDIO_HAL_CODEC_MODE_BOTH, AUDIO_HAL_CTRL_START);
