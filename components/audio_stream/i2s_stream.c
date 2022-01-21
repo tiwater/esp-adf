@@ -31,8 +31,8 @@
 #include "freertos/task.h"
 
 #include "driver/i2s.h"
-#include "driver/dac.h"
-#include "driver/periph_ctrl.h"
+//#include "driver/dac.h"
+//#include "driver/periph_ctrl.h"
 #include "esp_log.h"
 #include "esp_err.h"
 
@@ -48,6 +48,7 @@ static const char *TAG = "I2S_STREAM";
 #if defined(ESP_IDF_VERSION)
 #if (ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4, 2, 0))
 #define SOC_I2S_SUPPORTS_ADC_DAC 1
+#include "driver/dac.h"
 #endif
 
 #else
@@ -63,7 +64,7 @@ typedef struct i2s_stream {
     int                 volume;
     bool                uninstall_drv;
 } i2s_stream_t;
-
+#ifdef CONFIG_IDF_TARGET_ESP32
 static esp_err_t i2s_mono_fix(int bits, uint8_t *sbuff, uint32_t len)
 {
     if (bits == 16) {
@@ -90,6 +91,7 @@ static esp_err_t i2s_mono_fix(int bits, uint8_t *sbuff, uint32_t len)
     }
     return ESP_OK;
 }
+#endif
 
 #if SOC_I2S_SUPPORTS_ADC_DAC
 /**
@@ -142,6 +144,19 @@ static int i2s_stream_clear_dma_buffer(audio_element_handle_t self)
     return ESP_OK;
 }
 
+static esp_err_t _i2s_set_clk(i2s_port_t i2s_num, uint32_t rate, uint32_t bits_cfg, int ch)
+{
+    i2s_channel_t channel;
+    if (ch == 1) {
+        channel = I2S_CHANNEL_MONO;
+    } else if (ch == 2) {
+        channel = I2S_CHANNEL_STEREO;
+    } else {
+        return ESP_FAIL;
+    }
+    return i2s_set_clk(i2s_num, rate, bits_cfg, channel);
+}
+
 static esp_err_t _i2s_open(audio_element_handle_t self)
 {
     i2s_stream_t *i2s = (i2s_stream_t *)audio_element_getdata(self);
@@ -156,7 +171,7 @@ static esp_err_t _i2s_open(audio_element_handle_t self)
         i2s_info.sample_rates = 16000;
         audio_element_getinfo(self, &i2s_info);
         ESP_LOGI(TAG, "AUDIO_STREAM_READER,Rate:%d,ch:%d", i2s_info.sample_rates, i2s_info.channels);
-        if (i2s_set_clk(i2s->config.i2s_port, i2s_info.sample_rates, i2s_info.bits, i2s_info.channels) == ESP_FAIL) {
+        if (_i2s_set_clk(i2s->config.i2s_port, i2s_info.sample_rates, i2s_info.bits, i2s_info.channels) == ESP_FAIL) {
             ESP_LOGE(TAG, "i2s_set_clk failed, type = %d", i2s->config.type);
             return ESP_FAIL;
         }
@@ -251,7 +266,10 @@ static int _i2s_write(audio_element_handle_t self, char *buffer, int len, TickTy
         }
 #endif
     }
-    i2s_write(i2s->config.i2s_port, buffer, len, &bytes_written, ticks_to_wait);
+    if (i2s->config.i2s_config.bits_per_sample == I2S_BITS_PER_SAMPLE_16BIT)
+        i2s_write(i2s->config.i2s_port, buffer, len, &bytes_written, ticks_to_wait);
+    else
+        i2s_write_expand(i2s->config.i2s_port, buffer, len, I2S_BITS_PER_SAMPLE_16BIT, i2s->config.i2s_config.bits_per_sample, &bytes_written, ticks_to_wait);
     return bytes_written;
 }
 
@@ -300,7 +318,7 @@ esp_err_t i2s_stream_set_clk(audio_element_handle_t i2s_stream, int rate, int bi
     }
     audio_element_set_music_info(i2s_stream, rate, ch, bits);
 
-    if (i2s_set_clk(i2s->config.i2s_port, rate, bits, ch) == ESP_FAIL) {
+    if (_i2s_set_clk(i2s->config.i2s_port, rate, bits, ch) == ESP_FAIL) {
         ESP_LOGE(TAG, "i2s_set_clk failed, type = %d,port:%d", i2s->config.type, i2s->config.i2s_port);
         err = ESP_FAIL;
     }
@@ -365,7 +383,9 @@ audio_element_handle_t i2s_stream_init(i2s_stream_cfg_t *config)
     } else if (config->type == AUDIO_STREAM_WRITER) {
         cfg.write = _i2s_write;
     }
-    if (i2s_driver_install(i2s->config.i2s_port, &i2s->config.i2s_config, 0, NULL) != ESP_OK) {
+
+    esp_err_t ret = i2s_driver_install(i2s->config.i2s_port, &i2s->config.i2s_config, 0, NULL);
+    if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
         audio_free(i2s);
         return NULL;
     }

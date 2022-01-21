@@ -29,7 +29,7 @@ if 'BUILDDIR' in os.environ:
     builddir = os.environ['BUILDDIR']
 
 # Call Doxygen to get XML files from the header files
-print "Calling Doxygen to generate latest XML files"
+print("Calling Doxygen to generate latest XML files")
 os.system("doxygen ../Doxyfile")
 # Doxygen has generated XML files in 'xml' directory.
 # Copy them to 'xml_in', only touching the files which have changed.
@@ -62,8 +62,17 @@ extensions = ['breathe',
               'sphinxcontrib.actdiag',
               'sphinxcontrib.nwdiag',
               'sphinxcontrib.rackdiag',
-              'sphinxcontrib.packetdiag'
+              'sphinxcontrib.packetdiag',
+              'html_redirects'
              ]
+
+# Custom added feature to allow redirecting old URLs
+with open('../page_redirects.txt') as f:
+    lines = [re.sub(' +', ' ', line.strip()) for line in f.readlines() if line.strip() != '' and not line.startswith('#')]
+    for line in lines:  # check for well-formed entries
+        if len(line.split(' ')) != 2:
+            raise RuntimeError('Invalid line in page_redirects.txt: %s' % line)
+html_redirect_pages = [tuple(line.split(' ')) for line in lines]
 
 # Breathe extension variables
 
@@ -105,7 +114,7 @@ version = run_cmd_get_output('git describe')
 # The full version, including alpha/beta/rc tags.
 # If needed, nearest tag is returned by 'git describe --abbrev=0'.
 release = version
-print 'Version: {0}  Release: {1}'.format(version, release)
+print('Version: {0}  Release: {1}'.format(version, release))
 
 # There are two options for replacing |today|: either, you set today to some
 # non-false value, then it is used:

@@ -115,6 +115,7 @@ void app_main(void)
 #if (ESP_IDF_VERSION <= ESP_IDF_VERSION_VAL(4, 0, 0))
     i2s_cfg.i2s_config.channel_format = I2S_CHANNEL_FMT_ONLY_RIGHT;
 #endif
+
 #endif
     i2s_stream_reader = i2s_stream_init(&i2s_cfg);
 
@@ -187,8 +188,14 @@ void app_main(void)
     const char *link_tag[3] = {"i2s", "amr", "file"};
     audio_pipeline_link(pipeline, &link_tag[0], 3);
 #endif
+    ESP_LOGI(TAG, "[3.6] Set music info to fatfs");
+    audio_element_info_t music_info = {0};
+    audio_element_getinfo(i2s_stream_reader, &music_info);
+    ESP_LOGI(TAG, "[ * ] Save the recording info to the fatfs stream writer, sample_rates=%d, bits=%d, ch=%d",
+                music_info.sample_rates, music_info.bits, music_info.channels);
+    audio_element_setinfo(fatfs_stream_writer, &music_info);
 
-    ESP_LOGI(TAG, "[3.6] Set up  uri");
+    ESP_LOGI(TAG, "[3.7] Set up  uri");
 #if defined (CONFIG_CHOICE_WAV_ENCODER)
     audio_element_set_uri(fatfs_stream_writer, "/sdcard/rec.wav");
 #elif defined (CONFIG_CHOICE_OPUS_ENCODER)
@@ -198,7 +205,7 @@ void app_main(void)
 #elif defined (CONFIG_CHOICE_AMR_NB_ENCODER)
     audio_element_set_uri(fatfs_stream_writer, "/sdcard/rec.amr");
 #endif
-
+    
     ESP_LOGI(TAG, "[ 4 ] Set up  event listener");
     audio_event_iface_cfg_t evt_cfg = AUDIO_EVENT_IFACE_DEFAULT_CFG();
     audio_event_iface_handle_t evt = audio_event_iface_init(&evt_cfg);

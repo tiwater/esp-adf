@@ -38,7 +38,7 @@ extern "C" {
  *     - NULL, Fail
  *     - Others, Success
  */
-audio_service_handle_t dueros_service_create(void);
+audio_service_handle_t dueros_service_create(void *recorder_handle);
 
 /*
  * @brief Get dueros service state
