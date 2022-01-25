@@ -40,11 +40,7 @@
 #include "board.h"
 
 #include "amr_decoder.h"
-#include "mp3_decoder.h"
-#include "wav_decoder.h"
 #include "aac_decoder.h"
-#include "ogg_decoder.h"
-#include "opus_decoder.h"
 
 #include "http_stream.h"
 #include "i2s_stream.h"
@@ -63,7 +59,7 @@ STATIC const qstr player_info_fields[] = {
 };
 
 STATIC const MP_DEFINE_STR_OBJ(player_info_input_obj, "http|file stream");
-STATIC const MP_DEFINE_STR_OBJ(player_info_codec_obj, "mp3|amr|aac|opus|ogg|wav");
+STATIC const MP_DEFINE_STR_OBJ(player_info_codec_obj, "amr|aac");
 
 STATIC MP_DEFINE_ATTRTUPLE(
     player_info_obj,
@@ -77,6 +73,7 @@ STATIC mp_obj_t player_info(void)
     return (mp_obj_t)&player_info_obj;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(audio_player_info_obj, player_info);
+
 STATIC mp_state_thread_t player_ts;
 
 STATIC void audio_state_cb(esp_audio_state_t *state, void *ctx)
@@ -109,7 +106,7 @@ STATIC void audio_state_cb(esp_audio_state_t *state, void *ctx)
         mp_obj_dict_store(dict, MP_ROM_QSTR(MP_QSTR_err_msg), MP_OBJ_TO_PTR(mp_obj_new_int(state->err_msg)));
         mp_obj_dict_store(dict, MP_ROM_QSTR(MP_QSTR_media_src), MP_OBJ_TO_PTR(mp_obj_new_int(state->media_src)));
 
-        int ret = mp_sched_schedule(self->callback, dict);
+        mp_sched_schedule(self->callback, dict);
     }
 }
 
@@ -175,26 +172,10 @@ STATIC esp_audio_handle_t audio_player_create(void)
     aac_decoder_cfg_t aac_dec_cfg = DEFAULT_AAC_DECODER_CONFIG();
     aac_dec_cfg.task_core = 1;
     esp_audio_codec_lib_add(player, AUDIO_CODEC_TYPE_DECODER, aac_decoder_init(&aac_dec_cfg));
-    // mp3
-    mp3_decoder_cfg_t mp3_dec_cfg = DEFAULT_MP3_DECODER_CONFIG();
-    mp3_dec_cfg.task_core = 1;
-    esp_audio_codec_lib_add(player, AUDIO_CODEC_TYPE_DECODER, mp3_decoder_init(&mp3_dec_cfg));
     // amr
     amr_decoder_cfg_t amr_dec_cfg = DEFAULT_AMR_DECODER_CONFIG();
     amr_dec_cfg.task_core = 1;
     esp_audio_codec_lib_add(player, AUDIO_CODEC_TYPE_DECODER, amr_decoder_init(&amr_dec_cfg));
-    // wav
-    wav_decoder_cfg_t wav_dec_cfg = DEFAULT_WAV_DECODER_CONFIG();
-    wav_dec_cfg.task_core = 1;
-    esp_audio_codec_lib_add(player, AUDIO_CODEC_TYPE_DECODER, wav_decoder_init(&wav_dec_cfg));
-    // ogg
-    ogg_decoder_cfg_t ogg_dec_cfg = DEFAULT_OGG_DECODER_CONFIG();
-    ogg_dec_cfg.task_core = 1;
-    esp_audio_codec_lib_add(player, AUDIO_CODEC_TYPE_DECODER, ogg_decoder_init(&ogg_dec_cfg));
-    // opus
-    opus_decoder_cfg_t opus_dec_cfg = DEFAULT_OPUS_DECODER_CONFIG();
-    opus_dec_cfg.task_core = 1;
-    esp_audio_codec_lib_add(player, AUDIO_CODEC_TYPE_DECODER, decoder_opus_init(&opus_dec_cfg));
 
     // Create writers and add to esp_audio
     i2s_stream_cfg_t i2s_writer = I2S_STREAM_CFG_DEFAULT();
@@ -394,7 +375,6 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(audio_player_time_obj, audio_player_time);
 
 STATIC mp_obj_t audio_player_sleep(mp_obj_t self_in)
 {
-    audio_player_obj_t *self = self_in;
     ESP_LOGD("player", "audio_player_sleep");
 
     audio_board_handle_t board_handle = audio_board_get_handle();
