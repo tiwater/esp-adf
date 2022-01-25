@@ -46,6 +46,8 @@
 #include "i2s_stream.h"
 #include "vfs_stream.h"
 
+#define TAG "Audio Player"
+
 typedef struct _audio_player_obj_t {
     mp_obj_base_t base;
     mp_obj_t callback;
@@ -99,7 +101,12 @@ STATIC void audio_state_cb(esp_audio_state_t *state, void *ctx)
         player_status = state->status;
         player_err_msg = state->err_msg;
         player_media_src = state->media_src;
+        // FIXME sometimes grow up to 64, still need to be solved
+        vTaskDelay(20/portTICK_PERIOD_MS);
+        ESP_LOGD(TAG, "prev sched_len = %d", mp_sched_num_pending());
         mp_sched_schedule(MP_OBJ_FROM_PTR(&sche_audio_state_cb_obj), self->callback);
+        ESP_LOGD(TAG, "curr sched_len = %d", mp_sched_num_pending());
+        vTaskDelay(20/portTICK_PERIOD_MS);
     }
 }
 
@@ -141,7 +148,7 @@ STATIC esp_audio_handle_t audio_player_create(void)
     cfg.vol_handle = board_handle->audio_hal;
     cfg.vol_set = (audio_volume_set)audio_hal_set_volume;
     cfg.vol_get = (audio_volume_get)audio_hal_get_volume;
-    cfg.resample_rate = 48000;
+    cfg.resample_rate = 44100;
     cfg.prefer_type = ESP_AUDIO_PREFER_MEM;
     esp_audio_handle_t player = esp_audio_create(&cfg);
 
@@ -173,7 +180,7 @@ STATIC esp_audio_handle_t audio_player_create(void)
     // Create writers and add to esp_audio
     i2s_stream_cfg_t i2s_writer = I2S_STREAM_CFG_DEFAULT();
     i2s_writer.type = AUDIO_STREAM_WRITER;
-    i2s_writer.i2s_config.sample_rate = 48000;
+    i2s_writer.i2s_config.sample_rate = 44100;
     i2s_writer.task_core = 1;
     esp_audio_output_stream_add(player, i2s_stream_init(&i2s_writer));
 
@@ -368,7 +375,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(audio_player_time_obj, audio_player_time);
 
 STATIC mp_obj_t audio_player_sleep(mp_obj_t self_in)
 {
-    ESP_LOGD("player", "audio_player_sleep");
+    ESP_LOGD(TAG, "audio_player_sleep");
 
     audio_board_handle_t board_handle = audio_board_get_handle();
     board_handle->audio_hal->audio_codec_ctrl(AUDIO_HAL_CODEC_MODE_BOTH, AUDIO_HAL_CTRL_STOP);
@@ -384,7 +391,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(audio_player_sleep_obj, audio_player_sleep);
 
 STATIC mp_obj_t audio_player_deep_sleep(mp_obj_t self_in)
 {
-    ESP_LOGD("player", "audio_player_deep_sleep");
+    ESP_LOGD(TAG, "audio_player_deep_sleep");
 #if CONFIG_IDF_TARGET_ESP32
     rtc_gpio_isolate(GPIO_NUM_12);
 #endif
@@ -400,7 +407,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(audio_player_deep_sleep_obj, audio_player_deep_
 
 STATIC mp_obj_t audio_player_wakeup(mp_obj_t self_in)
 {
-    ESP_LOGD("player", "audio_player_wakeup");
+    ESP_LOGD(TAG, "audio_player_wakeup");
     rtc_gpio_deinit(GPIO_NUM_0);
     
     audio_board_handle_t board_handle = audio_board_get_handle();

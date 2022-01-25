@@ -31,6 +31,8 @@
 #include "audio_hal.h"
 #include "audio_pipeline.h"
 #include "board.h"
+#include "esp_log.h"
+#include "freertos/task.h"
 #include "filter_resample.h"
 
 #include "i2s_stream.h"
@@ -39,6 +41,8 @@
 
 #include "amrnb_encoder.h"
 #include "wav_encoder.h"
+
+#define TAG "Audio Recorder"
 
 enum {
     PCM,
@@ -73,7 +77,7 @@ STATIC mp_obj_t audio_recorder_make_new(const mp_obj_type_t *type, size_t n_args
 STATIC audio_element_handle_t audio_recorder_create_filter(int encoder_type)
 {
     rsp_filter_cfg_t rsp_cfg = DEFAULT_RESAMPLE_FILTER_CONFIG();
-    rsp_cfg.src_rate = 48000;
+    rsp_cfg.src_rate = 44100;
     rsp_cfg.src_ch = 2;
     rsp_cfg.dest_ch = 1;
     rsp_cfg.task_core = 1;
@@ -154,7 +158,7 @@ STATIC void audio_recorder_create(audio_recorder_obj_t *self, const char *uri, i
     i2s_stream_cfg_t i2s_cfg = I2S_STREAM_CFG_DEFAULT();
     i2s_cfg.type = AUDIO_STREAM_READER;
     i2s_cfg.uninstall_drv = false;
-    i2s_cfg.i2s_config.sample_rate = 48000;
+    i2s_cfg.i2s_config.sample_rate = 44100;
     i2s_cfg.task_core = 1;
     self->i2s_stream = i2s_stream_init(&i2s_cfg);
     // filter
@@ -200,7 +204,11 @@ static void audio_recorder_maxtime_cb(void *arg)
     audio_recorder_stop(arg);
     audio_recorder_obj_t *self = (audio_recorder_obj_t *)arg;
     if (self->end_cb != mp_const_none) {
+        vTaskDelay(20/portTICK_PERIOD_MS);
+        ESP_LOGD(TAG, "prev sched_len = %d", mp_sched_num_pending());
         mp_sched_schedule(self->end_cb, self);
+        ESP_LOGD(TAG, "curr sched_len = %d", mp_sched_num_pending());
+        vTaskDelay(20/portTICK_PERIOD_MS);
     }
 }
 
