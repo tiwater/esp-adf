@@ -74,39 +74,32 @@ STATIC mp_obj_t player_info(void)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(audio_player_info_obj, player_info);
 
-STATIC mp_state_thread_t player_ts;
+STATIC int player_status;
+STATIC int player_err_msg;
+STATIC int player_media_src;
+
+STATIC mp_obj_t sche_audio_state_cb(mp_obj_t cb)
+{
+    mp_obj_dict_t *dict = mp_obj_new_dict(3);
+
+    mp_obj_dict_store(dict, MP_ROM_QSTR(MP_QSTR_status), MP_OBJ_TO_PTR(mp_obj_new_int(player_status)));
+    mp_obj_dict_store(dict, MP_ROM_QSTR(MP_QSTR_err_msg), MP_OBJ_TO_PTR(mp_obj_new_int(player_err_msg)));
+    mp_obj_dict_store(dict, MP_ROM_QSTR(MP_QSTR_media_src), MP_OBJ_TO_PTR(mp_obj_new_int(player_media_src)));
+
+    mp_call_function_1(cb, dict);
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(sche_audio_state_cb_obj, sche_audio_state_cb);
 
 STATIC void audio_state_cb(esp_audio_state_t *state, void *ctx)
 {
     audio_player_obj_t *self = (audio_player_obj_t *)ctx;
     memcpy(&self->state, state, sizeof(esp_audio_state_t));
     if (self->callback != mp_const_none) {
-        if(mp_thread_get_state()==0){
-            ESP_LOGE("player", "audio_state_cb cannot find the thread state, create a new one!");
-            memset(&player_ts, 0, sizeof(mp_state_thread_t));
-            mp_thread_set_state(&player_ts);
-
-            mp_stack_set_top(&player_ts + 1); // need to include ts in root-pointer scan
-            mp_stack_set_limit(2048);
-
-            #if MICROPY_ENABLE_PYSTACK
-            // TODO threading and pystack is not fully supported, for now just make a small stack
-            mp_obj_t mini_pystack[128];
-            mp_pystack_init(mini_pystack, &mini_pystack[128]);
-            #endif
-
-            // The GC starts off unlocked on this thread.
-            player_ts.gc_lock_depth = 0;
-
-            player_ts.mp_pending_exception = MP_OBJ_NULL;
-        }
-        mp_obj_dict_t *dict = mp_obj_new_dict(3);
-
-        mp_obj_dict_store(dict, MP_ROM_QSTR(MP_QSTR_status), MP_OBJ_TO_PTR(mp_obj_new_int(state->status)));
-        mp_obj_dict_store(dict, MP_ROM_QSTR(MP_QSTR_err_msg), MP_OBJ_TO_PTR(mp_obj_new_int(state->err_msg)));
-        mp_obj_dict_store(dict, MP_ROM_QSTR(MP_QSTR_media_src), MP_OBJ_TO_PTR(mp_obj_new_int(state->media_src)));
-
-        mp_sched_schedule(self->callback, dict);
+        player_status = state->status;
+        player_err_msg = state->err_msg;
+        player_media_src = state->media_src;
+        mp_sched_schedule(MP_OBJ_FROM_PTR(&sche_audio_state_cb_obj), self->callback);
     }
 }
 
