@@ -39,7 +39,7 @@
 #include "audio_hal.h"
 #include "board.h"
 
-#include "amr_decoder.h"
+#include "wav_decoder.h"
 #include "aac_decoder.h"
 
 #include "http_stream.h"
@@ -61,7 +61,7 @@ STATIC const qstr player_info_fields[] = {
 };
 
 STATIC const MP_DEFINE_STR_OBJ(player_info_input_obj, "http|file stream");
-STATIC const MP_DEFINE_STR_OBJ(player_info_codec_obj, "amr|aac");
+STATIC const MP_DEFINE_STR_OBJ(player_info_codec_obj, "wav|aac");
 
 STATIC MP_DEFINE_ATTRTUPLE(
     player_info_obj,
@@ -172,10 +172,10 @@ STATIC esp_audio_handle_t audio_player_create(void)
     aac_decoder_cfg_t aac_dec_cfg = DEFAULT_AAC_DECODER_CONFIG();
     aac_dec_cfg.task_core = 1;
     esp_audio_codec_lib_add(player, AUDIO_CODEC_TYPE_DECODER, aac_decoder_init(&aac_dec_cfg));
-    // amr
-    amr_decoder_cfg_t amr_dec_cfg = DEFAULT_AMR_DECODER_CONFIG();
-    amr_dec_cfg.task_core = 1;
-    esp_audio_codec_lib_add(player, AUDIO_CODEC_TYPE_DECODER, amr_decoder_init(&amr_dec_cfg));
+    // wav
+    wav_decoder_cfg_t wav_dec_cfg = DEFAULT_WAV_DECODER_CONFIG();
+    wav_dec_cfg.task_core = 1;
+    esp_audio_codec_lib_add(player, AUDIO_CODEC_TYPE_DECODER, wav_decoder_init(&wav_dec_cfg));
 
     // Create writers and add to esp_audio
     i2s_stream_cfg_t i2s_writer = I2S_STREAM_CFG_DEFAULT();

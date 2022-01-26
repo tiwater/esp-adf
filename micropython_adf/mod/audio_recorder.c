@@ -39,7 +39,6 @@
 #include "raw_stream.h"
 #include "vfs_stream.h"
 
-#include "amrnb_encoder.h"
 #include "wav_encoder.h"
 
 #define TAG "Audio Recorder"
@@ -106,12 +105,6 @@ STATIC audio_element_handle_t audio_recorder_create_encoder(int encoder_type)
     audio_element_handle_t encoder = NULL;
 
     switch (encoder_type) {
-        case AMR: {
-            amrnb_encoder_cfg_t amr_enc_cfg = DEFAULT_AMRNB_ENCODER_CONFIG();
-            amr_enc_cfg.task_core = 1;
-            encoder = amrnb_encoder_init(&amr_enc_cfg);
-            break;
-        }
         case WAV: {
             wav_encoder_cfg_t wav_cfg = DEFAULT_WAV_ENCODER_CONFIG();
             wav_cfg.task_core = 1;
