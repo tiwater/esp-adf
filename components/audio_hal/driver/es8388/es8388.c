@@ -306,11 +306,11 @@ esp_err_t es8388_init(audio_hal_codec_config_t *cfg)
     res |= es_write_reg(ES8388_ADDR, ES8388_ADCCONTROL4, 0x4d); // Left data, Left/Right justified mode, Bits length, I2S format
     res |= es_write_reg(ES8388_ADDR, ES8388_ADCCONTROL5, 0x02);  //ADCFsMode,singel SPEED,RATIO=256
     //ALC for Microphone
-    res |= es_write_reg(ES8388_ADDR, ES8388_ADCCONTROL10, 0xfe);  //ALC gain range, Stero
-    res |= es_write_reg(ES8388_ADDR, ES8388_ADCCONTROL11, 0xa0);  //ALC target level and hold time
-    res |= es_write_reg(ES8388_ADDR, ES8388_ADCCONTROL12, 0x12);   //ALC ramp up & ramp down mode
-    res |= es_write_reg(ES8388_ADDR, ES8388_ADCCONTROL13, 0x06);
-    res |= es_write_reg(ES8388_ADDR, ES8388_ADCCONTROL14, 0xfb);
+    res |= es_write_reg(ES8388_ADDR, ES8388_ADCCONTROL10, 0xea);  //0x38 ALC gain range, Stero
+    res |= es_write_reg(ES8388_ADDR, ES8388_ADCCONTROL11, 0xc0);  //0xb0 ALC target level and hold time
+    res |= es_write_reg(ES8388_ADDR, ES8388_ADCCONTROL12, 0x12);  //0x32 ALC ramp up & ramp down mode
+    res |= es_write_reg(ES8388_ADDR, ES8388_ADCCONTROL13, 0x06);  //0x06 ALC mode of operation
+    res |= es_write_reg(ES8388_ADDR, ES8388_ADCCONTROL14, 0xc3);  //0x00 ALC noise gate threshold
 
     res |= es8388_set_adc_dac_volume(ES_MODULE_ADC, 0, 0);      // 0db
     res |= es_write_reg(ES8388_ADDR, ES8388_ADCPOWER, 0x00); //Power on ADC, Enable LIN&RIN, Power off MICBIAS, set int1lp to low power mode
