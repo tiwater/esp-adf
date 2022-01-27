@@ -303,7 +303,7 @@ esp_err_t es8388_init(audio_hal_codec_config_t *cfg)
     res |= es_write_reg(ES8388_ADDR, ES8388_ADCCONTROL3, 0x02);  //L1-R1
     //res |= es_write_reg(ES8388_ADDR, ES8388_ADCCONTROL3, 0x82);   //L2-R2
 
-    res |= es_write_reg(ES8388_ADDR, ES8388_ADCCONTROL4, 0x4d); // Left data, Left/Right justified mode, Bits length, I2S format
+    res |= es_write_reg(ES8388_ADDR, ES8388_ADCCONTROL4, 0x00); // Left data, Left/Right justified mode, Bits length, I2S format
     res |= es_write_reg(ES8388_ADDR, ES8388_ADCCONTROL5, 0x02);  //ADCFsMode,singel SPEED,RATIO=256
     //ALC for Microphone
     res |= es_write_reg(ES8388_ADDR, ES8388_ADCCONTROL10, 0xea);  //0x38 ALC gain range, Stero
