@@ -49,7 +49,6 @@
 #define FILE_AMRWB_SUFFIX_TYPE "Wamr"
 
 static const char *TAG = "VFS_STREAM";
-static int thread_inited = 0;
 
 typedef enum {
     STREAM_TYPE_UNKNOW,
