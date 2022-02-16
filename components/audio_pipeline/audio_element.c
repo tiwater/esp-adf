@@ -170,7 +170,7 @@ esp_err_t audio_element_process_init(audio_element_handle_t el)
         xEventGroupSetBits(el->state_event, STARTED_BIT);
         return ESP_OK;
     }
-    el->is_open = true;
+    el->is_open = false;
     audio_element_force_set_state(el, AEL_STATE_INITIALIZING);
     esp_err_t ret = el->open(el);
     if (ret == ESP_OK) {
@@ -178,12 +178,12 @@ esp_err_t audio_element_process_init(audio_element_handle_t el)
         audio_element_force_set_state(el, AEL_STATE_RUNNING);
         audio_element_report_status(el, AEL_STATUS_STATE_RUNNING);
         xEventGroupSetBits(el->state_event, STARTED_BIT);
-        return ESP_OK;
+        el->is_open = true;
     } else if (ret == AEL_IO_DONE) {
         ESP_LOGW(TAG, "[%s] OPEN AEL_IO_DONE", el->tag);
         audio_element_force_set_state(el, AEL_STATE_RUNNING);
         audio_element_report_status(el, AEL_STATUS_STATE_RUNNING);
-        return ESP_OK;
+        el->is_open = true;
     } else if (ret == AEL_IO_ABORT) {
         ESP_LOGW(TAG, "[%s] AEL_IO_ABORT, %d", el->tag, ret);
         audio_element_on_cmd_stop(el);
@@ -193,7 +193,7 @@ esp_err_t audio_element_process_init(audio_element_handle_t el)
         audio_element_report_status(el, AEL_STATUS_ERROR_OPEN);
         audio_element_on_cmd_error(el);
     }
-    return ESP_FAIL;
+    return el->is_open ? ESP_OK : ESP_FAIL;
 }
 
 esp_err_t audio_element_process_deinit(audio_element_handle_t el)

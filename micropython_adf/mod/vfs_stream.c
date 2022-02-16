@@ -69,8 +69,6 @@ typedef struct vfs_stream {
 #endif
 } vfs_stream_t;
 
-// static mp_state_thread_t* ts = NULL;
-
 static wr_stream_type_t get_type(const char *str)
 {
     char *relt = strrchr(str, '.');
@@ -103,6 +101,48 @@ static int get_len(mp_obj_t stream)
     return (int)mp_obj_get_int(len);
 }
 
+static esp_err_t _vfs_close(audio_element_handle_t self)
+{
+    vfs_stream_t *vfs = (vfs_stream_t *)audio_element_getdata(self);
+
+    if (AUDIO_STREAM_WRITER == vfs->type
+        && vfs->file
+        && STREAM_TYPE_WAV == vfs->w_type) {
+        wav_header_t *wav_info = (wav_header_t *)audio_malloc(sizeof(wav_header_t));
+
+        AUDIO_MEM_CHECK(TAG, wav_info, return ESP_ERR_NO_MEM);
+
+        if (mp_stream_posix_lseek(vfs->file, 0, SEEK_SET) != 0) {
+            ESP_LOGE(TAG, "Error seek file ,line=%d", __LINE__);
+        }
+        audio_element_info_t info;
+        audio_element_getinfo(self, &info);
+        wav_head_init(wav_info, info.sample_rates, info.bits, info.channels);
+        wav_head_size(wav_info, (uint32_t)info.byte_pos);
+        mp_stream_posix_write(vfs->file, wav_info, sizeof(wav_header_t));
+        mp_stream_posix_fsync(vfs->file);
+        mp_stream_close(vfs->file);
+        audio_free(wav_info);
+    }
+
+    if (vfs->is_open) {
+        mp_obj_t close;
+        mp_load_method(vfs->file, MP_QSTR_close, &close);
+        mp_call_function_1(close, vfs->file);
+        vfs->is_open = false;
+    }
+    if (AEL_STATE_PAUSED != audio_element_get_state(self)) {
+        audio_element_report_info(self);
+        audio_element_info_t info = { 0 };
+        audio_element_getinfo(self, &info);
+        info.byte_pos = 0;
+        audio_element_setinfo(self, &info);
+    }
+    mp_obj_dict_delete(MP_OBJ_FROM_PTR(&MP_STATE_VM(dict_main)), MP_OBJ_NEW_QSTR(MP_QSTR___audio_vfs_file__));
+
+    return ESP_OK;
+}
+
 static esp_err_t _vfs_open(audio_element_handle_t self)
 {
     vfs_stream_t *vfs = (vfs_stream_t *)audio_element_getdata(self);
@@ -114,7 +154,7 @@ static esp_err_t _vfs_open(audio_element_handle_t self)
         mp_thread_set_state(ts);
 
         mp_stack_set_top(ts + 1); // need to include ts in root-pointer scan
-        mp_stack_set_limit(2048);
+        mp_stack_set_limit(128);
 
         #if MICROPY_ENABLE_PYSTACK
         // TODO threading and pystack is not fully supported, for now just make a small stack
@@ -152,6 +192,7 @@ static esp_err_t _vfs_open(audio_element_handle_t self)
         ESP_LOGE(TAG, "already opened");
         return ESP_FAIL;
     }
+    vfs->file = mp_const_none;
     if (vfs->type == AUDIO_STREAM_READER) {
         mp_obj_t args[2];
         args[0] = mp_obj_new_str(path, strlen(path));
@@ -167,23 +208,52 @@ static esp_err_t _vfs_open(audio_element_handle_t self)
             }
         }
     } else if (vfs->type == AUDIO_STREAM_WRITER) {
-        mp_obj_t args[2];
-        args[0] = mp_obj_new_str(path, strlen(path));
-        args[1] = mp_obj_new_str("wb", strlen("wb"));
-        vfs->file = mp_vfs_open(2, args, (mp_map_t *)&mp_const_empty_map);
-        mp_obj_dict_store(MP_OBJ_FROM_PTR(&MP_STATE_VM(dict_main)), MP_OBJ_NEW_QSTR(MP_QSTR___audio_vfs_file__), vfs->file);
-        vfs->w_type = get_type(path);
-        if (vfs->file != mp_const_none && STREAM_TYPE_WAV == vfs->w_type) {
-            wav_header_t info = { 0 };
-            mp_stream_posix_write(vfs->file, &info, sizeof(wav_header_t));
-            mp_stream_posix_fsync(vfs->file);
-        } else if (vfs->file != mp_const_none && (STREAM_TYPE_AMR == vfs->w_type)) {
-            mp_stream_posix_write(vfs->file, "#!AMR\n", 6);
-            mp_stream_posix_fsync(vfs->file);
-        } else if (vfs->file != mp_const_none && (STREAM_TYPE_AMRWB == vfs->w_type)) {
-            mp_stream_posix_write(vfs->file, "#!AMR-WB\n", 9);
-            mp_stream_posix_fsync(vfs->file);
+        // bugfixing: add sched lock and nlr stack push
+        //            for recorder crash in mp_vfs_open
+        //            sometimes args[0].u_obj fail to get type ...
+        //            I don't know why, but it work now ...
+        // FIXME: a better and thorough solution need
+        mp_sched_lock();
+
+        nlr_buf_t nlr;
+        mp_int_t ret = -MP_EIO;
+        if (nlr_push(&nlr) == 0) {
+            mp_obj_t args[2];
+            args[0] = mp_obj_new_str(path, strlen(path));
+            args[1] = mp_obj_new_str("wb", strlen("wb"));
+            vfs->file = mp_vfs_open(2, args, (mp_map_t *)&mp_const_empty_map);
+            vfs->w_type = get_type(path);
+            if (vfs->file != mp_const_none) {
+                mp_obj_t file = vfs->file;
+                mp_obj_dict_store(MP_OBJ_FROM_PTR(&MP_STATE_VM(dict_main)),
+                        MP_OBJ_NEW_QSTR(MP_QSTR___audio_vfs_file__), file);
+                if (STREAM_TYPE_WAV == vfs->w_type) {
+                    wav_header_t info = { 0 };
+                    mp_stream_posix_write(file, &info, sizeof(wav_header_t));
+                    mp_stream_posix_fsync(file);
+                } else if (STREAM_TYPE_AMR == vfs->w_type) {
+                    mp_stream_posix_write(file, "#!AMR\n", 6);
+                    mp_stream_posix_fsync(file);
+                } else if (STREAM_TYPE_AMRWB == vfs->w_type) {
+                    mp_stream_posix_write(file, "#!AMR-WB\n", 9);
+                    mp_stream_posix_fsync(file);
+                }
+            }
+            ret = ESP_OK;
+            nlr_pop();
+        } else {
+            mp_obj_base_t *exc = nlr.ret_val;
+            mp_const_obj_t type = MP_OBJ_FROM_PTR(exc->type);
+            if (mp_obj_is_subclass_fast(type, MP_OBJ_FROM_PTR(&mp_type_SystemExit))) {
+                // swallow exception silently
+            } else {
+                mp_obj_t v = mp_obj_exception_get_value(MP_OBJ_FROM_PTR(exc));
+                mp_obj_get_int_maybe(v, &ret); // get errno value
+                ESP_LOGE(TAG, "_vs_open exception catched: [%d]", ret);
+            }
         }
+
+        mp_sched_unlock();
     } else {
         ESP_LOGE(TAG, "vfs must be Reader or Writer");
         return ESP_FAIL;
@@ -244,48 +314,6 @@ static int _vfs_process(audio_element_handle_t self, char *in_buffer, int in_len
         w_size = r_size;
     }
     return w_size;
-}
-
-static esp_err_t _vfs_close(audio_element_handle_t self)
-{
-    vfs_stream_t *vfs = (vfs_stream_t *)audio_element_getdata(self);
-
-    if (AUDIO_STREAM_WRITER == vfs->type
-        && vfs->file
-        && STREAM_TYPE_WAV == vfs->w_type) {
-        wav_header_t *wav_info = (wav_header_t *)audio_malloc(sizeof(wav_header_t));
-
-        AUDIO_MEM_CHECK(TAG, wav_info, return ESP_ERR_NO_MEM);
-
-        if (mp_stream_posix_lseek(vfs->file, 0, SEEK_SET) != 0) {
-            ESP_LOGE(TAG, "Error seek file ,line=%d", __LINE__);
-        }
-        audio_element_info_t info;
-        audio_element_getinfo(self, &info);
-        wav_head_init(wav_info, info.sample_rates, info.bits, info.channels);
-        wav_head_size(wav_info, (uint32_t)info.byte_pos);
-        mp_stream_posix_write(vfs->file, wav_info, sizeof(wav_header_t));
-        mp_stream_posix_fsync(vfs->file);
-        mp_stream_close(vfs->file);
-        audio_free(wav_info);
-    }
-
-    if (vfs->is_open) {
-        mp_obj_t close;
-        mp_load_method(vfs->file, MP_QSTR_close, &close);
-        mp_call_function_1(close, vfs->file);
-        vfs->is_open = false;
-    }
-    if (AEL_STATE_PAUSED != audio_element_get_state(self)) {
-        audio_element_report_info(self);
-        audio_element_info_t info = { 0 };
-        audio_element_getinfo(self, &info);
-        info.byte_pos = 0;
-        audio_element_setinfo(self, &info);
-    }
-    mp_obj_dict_delete(MP_OBJ_FROM_PTR(&MP_STATE_VM(dict_main)), MP_OBJ_NEW_QSTR(MP_QSTR___audio_vfs_file__));
-
-    return ESP_OK;
 }
 
 static esp_err_t _vfs_destroy(audio_element_handle_t self)
