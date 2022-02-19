@@ -208,52 +208,21 @@ static esp_err_t _vfs_open(audio_element_handle_t self)
             }
         }
     } else if (vfs->type == AUDIO_STREAM_WRITER) {
-        // bugfixing: add sched lock and nlr stack push
-        //            for recorder crash in mp_vfs_open
-        //            sometimes args[0].u_obj fail to get type ...
-        //            I don't know why, but it work now ...
-        // FIXME: a better and thorough solution need
-        mp_sched_lock();
-
-        nlr_buf_t nlr;
-        mp_int_t ret = -MP_EIO;
-        if (nlr_push(&nlr) == 0) {
-            mp_obj_t args[2];
-            args[0] = mp_obj_new_str(path, strlen(path));
-            args[1] = mp_obj_new_str("wb", strlen("wb"));
-            vfs->file = mp_vfs_open(2, args, (mp_map_t *)&mp_const_empty_map);
-            vfs->w_type = get_type(path);
-            if (vfs->file != mp_const_none) {
-                mp_obj_t file = vfs->file;
-                mp_obj_dict_store(MP_OBJ_FROM_PTR(&MP_STATE_VM(dict_main)),
-                        MP_OBJ_NEW_QSTR(MP_QSTR___audio_vfs_file__), file);
-                if (STREAM_TYPE_WAV == vfs->w_type) {
-                    wav_header_t info = { 0 };
-                    mp_stream_posix_write(file, &info, sizeof(wav_header_t));
-                    mp_stream_posix_fsync(file);
-                } else if (STREAM_TYPE_AMR == vfs->w_type) {
-                    mp_stream_posix_write(file, "#!AMR\n", 6);
-                    mp_stream_posix_fsync(file);
-                } else if (STREAM_TYPE_AMRWB == vfs->w_type) {
-                    mp_stream_posix_write(file, "#!AMR-WB\n", 9);
-                    mp_stream_posix_fsync(file);
-                }
-            }
-            ret = ESP_OK;
-            nlr_pop();
-        } else {
-            mp_obj_base_t *exc = nlr.ret_val;
-            mp_const_obj_t type = MP_OBJ_FROM_PTR(exc->type);
-            if (mp_obj_is_subclass_fast(type, MP_OBJ_FROM_PTR(&mp_type_SystemExit))) {
-                // swallow exception silently
-            } else {
-                mp_obj_t v = mp_obj_exception_get_value(MP_OBJ_FROM_PTR(exc));
-                mp_obj_get_int_maybe(v, &ret); // get errno value
-                ESP_LOGE(TAG, "_vs_open exception catched: [%d]", ret);
+        mp_obj_t args[2];
+        args[0] = mp_obj_new_str(path, strlen(path));
+        args[1] = mp_obj_new_str("wb", strlen("wb"));
+        vfs->file = mp_vfs_open(2, args, (mp_map_t *)&mp_const_empty_map);
+        vfs->w_type = get_type(path);
+        if (vfs->file != mp_const_none) {
+            mp_obj_t file = vfs->file;
+            mp_obj_dict_store(MP_OBJ_FROM_PTR(&MP_STATE_VM(dict_main)),
+                    MP_OBJ_NEW_QSTR(MP_QSTR___audio_vfs_file__), file);
+            if (STREAM_TYPE_WAV == vfs->w_type) {
+                wav_header_t info = { 0 };
+                mp_stream_posix_write(file, &info, sizeof(wav_header_t));
+                mp_stream_posix_fsync(file);
             }
         }
-
-        mp_sched_unlock();
     } else {
         ESP_LOGE(TAG, "vfs must be Reader or Writer");
         return ESP_FAIL;
