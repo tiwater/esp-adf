@@ -138,7 +138,18 @@ static esp_err_t _vfs_close(audio_element_handle_t self)
         info.byte_pos = 0;
         audio_element_setinfo(self, &info);
     }
-    mp_obj_dict_delete(MP_OBJ_FROM_PTR(&MP_STATE_VM(dict_main)), MP_OBJ_NEW_QSTR(MP_QSTR___audio_vfs_file__));
+    if (vfs->type == AUDIO_STREAM_READER){
+        mp_obj_dict_delete(MP_OBJ_FROM_PTR(&MP_STATE_VM(dict_main)), MP_OBJ_NEW_QSTR(MP_QSTR___audio_vfs_file__));
+    } else {
+        mp_obj_dict_delete(MP_OBJ_FROM_PTR(&MP_STATE_VM(dict_main)), MP_OBJ_NEW_QSTR(MP_QSTR___record_vfs_file__));
+    }
+#if MICROPY_PY_THREAD
+    if(vfs->ts!=NULL)
+    {
+        free(vfs->ts);
+        vfs->ts=NULL;
+    }
+#endif
 
     return ESP_OK;
 }
@@ -166,6 +177,8 @@ static esp_err_t _vfs_open(audio_element_handle_t self)
         ts->gc_lock_depth = 0;
 
         ts->mp_pending_exception = MP_OBJ_NULL;
+        mp_locals_set(mp_state_ctx.thread.dict_locals); // use main thread's locals
+        mp_globals_set(mp_state_ctx.thread.dict_globals); // use main thread's globals
         vfs->ts = ts;
     }
 #endif
@@ -216,7 +229,7 @@ static esp_err_t _vfs_open(audio_element_handle_t self)
         if (vfs->file != mp_const_none) {
             mp_obj_t file = vfs->file;
             mp_obj_dict_store(MP_OBJ_FROM_PTR(&MP_STATE_VM(dict_main)),
-                    MP_OBJ_NEW_QSTR(MP_QSTR___audio_vfs_file__), file);
+                    MP_OBJ_NEW_QSTR(MP_QSTR___record_vfs_file__), file);
             if (STREAM_TYPE_WAV == vfs->w_type) {
                 wav_header_t info = { 0 };
                 mp_stream_posix_write(file, &info, sizeof(wav_header_t));
@@ -236,7 +249,6 @@ static esp_err_t _vfs_open(audio_element_handle_t self)
         ESP_LOGE(TAG, "Failed to seek to %d/%d", (int)info.byte_pos, (int)info.total_bytes);
         return ESP_FAIL;
     }
-
     return audio_element_setinfo(self, &info);
 }
 
@@ -288,10 +300,6 @@ static int _vfs_process(audio_element_handle_t self, char *in_buffer, int in_len
 static esp_err_t _vfs_destroy(audio_element_handle_t self)
 {
     vfs_stream_t *vfs = (vfs_stream_t *)audio_element_getdata(self);
-    if(vfs->ts!=NULL)
-    {
-        free(vfs->ts);
-    }
     audio_free(vfs);
     return ESP_OK;
 }
@@ -319,7 +327,9 @@ audio_element_handle_t vfs_stream_init(vfs_stream_cfg_t *config)
 
     cfg.tag = "file";
     vfs->type = config->type;
+#if MICROPY_PY_THREAD
     vfs->ts = NULL;
+#endif
 
     if (config->type == AUDIO_STREAM_WRITER) {
         cfg.write = _vfs_write;
