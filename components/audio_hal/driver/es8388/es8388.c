@@ -162,7 +162,7 @@ esp_err_t es8388_start(es_module_t mode)
     }
     if (mode == ES_MODULE_DAC || mode == ES_MODULE_ADC_DAC || mode == ES_MODULE_LINE) {
         res |= es_write_reg(ES8388_ADDR, ES8388_DACPOWER, 0x3c);   //power up dac and line out
-        res |= es8388_set_voice_mute(false);
+        //res |= es8388_set_voice_mute(false);
         ESP_LOGD(ES_TAG, "es8388_start default is mode:%d", mode);
     }
 
@@ -191,7 +191,7 @@ esp_err_t es8388_stop(es_module_t mode)
     }
     if (mode == ES_MODULE_DAC || mode == ES_MODULE_ADC_DAC) {
         res |= es_write_reg(ES8388_ADDR, ES8388_DACPOWER, 0x00);
-        res |= es8388_set_voice_mute(true); //res |= Es8388SetAdcDacVolume(ES_MODULE_DAC, -96, 5);      // 0db
+        //res |= es8388_set_voice_mute(true); //res |= Es8388SetAdcDacVolume(ES_MODULE_DAC, -96, 5);      // 0db
         res |= es_write_reg(ES8388_ADDR, ES8388_DACPOWER, 0xC0);  //power down dac and line out
     }
     if (mode == ES_MODULE_ADC || mode == ES_MODULE_ADC_DAC) {
