@@ -79,7 +79,7 @@ STATIC audio_element_handle_t audio_recorder_create_filter(int encoder_type)
     rsp_cfg.src_rate = 44100;
     rsp_cfg.src_ch = 2;
     rsp_cfg.dest_ch = 1;
-    rsp_cfg.task_core = 1;
+    rsp_cfg.task_core = tskNO_AFFINITY;
 
     switch (encoder_type) {
         case PCM: {
@@ -107,7 +107,7 @@ STATIC audio_element_handle_t audio_recorder_create_encoder(int encoder_type)
     switch (encoder_type) {
         case WAV: {
             wav_encoder_cfg_t wav_cfg = DEFAULT_WAV_ENCODER_CONFIG();
-            wav_cfg.task_core = 1;
+            wav_cfg.task_core = tskNO_AFFINITY;
             encoder = wav_encoder_init(&wav_cfg);
             break;
         }
@@ -124,7 +124,7 @@ STATIC audio_element_handle_t audio_recorder_create_outstream(const char *uri)
     if (strstr(uri, "/sdcard/") != NULL) {
         vfs_stream_cfg_t vfs_cfg = VFS_STREAM_CFG_DEFAULT();
         vfs_cfg.type = AUDIO_STREAM_WRITER;
-        vfs_cfg.task_core = 1;
+        vfs_cfg.task_core = tskNO_AFFINITY;
         out_stream = vfs_stream_init(&vfs_cfg);
     } else if (strstr(uri, "/spiffs/") != NULL) {
         // TODO: spiffs
@@ -152,7 +152,7 @@ STATIC void audio_recorder_create(audio_recorder_obj_t *self, const char *uri, i
     i2s_cfg.type = AUDIO_STREAM_READER;
     i2s_cfg.uninstall_drv = false;
     i2s_cfg.i2s_config.sample_rate = 44100;
-    i2s_cfg.task_core = 1;
+    i2s_cfg.task_core = tskNO_AFFINITY;
     self->i2s_stream = i2s_stream_init(&i2s_cfg);
     // filter
     self->filter = audio_recorder_create_filter(format);
