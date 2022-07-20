@@ -156,32 +156,34 @@ STATIC esp_audio_handle_t audio_player_create(void)
     // fatfs stream
     vfs_stream_cfg_t fs_reader = VFS_STREAM_CFG_DEFAULT();
     fs_reader.type = AUDIO_STREAM_READER;
-    fs_reader.task_core = 1;
+    fs_reader.task_core = tskNO_AFFINITY;
     esp_audio_input_stream_add(player, vfs_stream_init(&fs_reader));
     // http stream
     http_stream_cfg_t http_cfg = HTTP_STREAM_CFG_DEFAULT();
     http_cfg.event_handle = _http_stream_event_handle;
     http_cfg.type = AUDIO_STREAM_READER;
     http_cfg.enable_playlist_parser = true;
-    http_cfg.task_core = 1;
+    http_cfg.task_core = tskNO_AFFINITY;
     audio_element_handle_t http_stream_reader = http_stream_init(&http_cfg);
     esp_audio_input_stream_add(player, http_stream_reader);
 
     // add decoder
     // aac
     aac_decoder_cfg_t aac_dec_cfg = DEFAULT_AAC_DECODER_CONFIG();
-    aac_dec_cfg.task_core = 1;
+    aac_dec_cfg.task_core = tskNO_AFFINITY;
+    aac_dec_cfg.out_rb_size = 5 * 1024;
+    aac_dec_cfg.task_prio = fs_reader.task_prio;
     esp_audio_codec_lib_add(player, AUDIO_CODEC_TYPE_DECODER, aac_decoder_init(&aac_dec_cfg));
     // wav
     wav_decoder_cfg_t wav_dec_cfg = DEFAULT_WAV_DECODER_CONFIG();
-    wav_dec_cfg.task_core = 1;
+    wav_dec_cfg.task_core = tskNO_AFFINITY;
     esp_audio_codec_lib_add(player, AUDIO_CODEC_TYPE_DECODER, wav_decoder_init(&wav_dec_cfg));
 
     // Create writers and add to esp_audio
     i2s_stream_cfg_t i2s_writer = I2S_STREAM_CFG_DEFAULT();
     i2s_writer.type = AUDIO_STREAM_WRITER;
     i2s_writer.i2s_config.sample_rate = 44100;
-    i2s_writer.task_core = 1;
+    i2s_writer.task_core = tskNO_AFFINITY;
     esp_audio_output_stream_add(player, i2s_stream_init(&i2s_writer));
 
     return player;
